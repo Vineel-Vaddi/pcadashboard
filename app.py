@@ -67,218 +67,221 @@ def query_data(collection, filters):
     logging.info("Executing query: %s", query)
     # Retrieve only the required fields for both dashboard and raw table
     projection = {"_id": 1,
-                  "finishDate": 1,Added field for caseID
-                  "totalTime": 1,,
-                  "login": 1,: 1,
+                  "caseID": 1,  # Added field for caseID
+                  "finishDate": 1,
+                  "totalTime": 1,
+                  "login": 1,
                   "managerLogin": 1,
-                  "category": 1,: 1,
-                  "notes": 1, 1,
+                  "category": 1,
+                  "notes": 1,
                   "queue": 1,
-                  "site": 1},
-    try:          "site": 1}
+                  "site": 1}
+    try:
         cursor = collection.find(query, projection).batch_size(500)
-        documents = list(cursor)(query, projection).batch_size(500)
+        documents = list(cursor)
         logging.info("Query returned %d documents", len(documents))
-        return documentsery returned %d documents", len(documents))
+        return documents
     except Exception as e:
         logging.error("Error querying data: %s", str(e))
-        return []rror("Error querying data: %s", str(e))
         return []
+
 @st.cache_data
 def transform_data(_documents):
-    """nsform_data(_documents):
+    """
     Transform documents into a full DataFrame (for charts) and a raw DataFrame (for display/export) 
-    with only the necessary fields and renamed columns.ts) and a raw DataFrame (for display/export) 
-    """h only the necessary fields and renamed columns.
-    df = pd.DataFrame(_documents)
-    # Removed conversion for '_id' as raw table now uses caseIDcuments here instead of 'documents'
-    raw_columns_map = {"caseID": "Case ID",  # Now using caseID instead of _idns:
+    with only the necessary fields and renamed columns.
+    """
+    df = pd.DataFrame(_documents)  # Use _documents here instead of 'documents'
+    if not df.empty and '_id' in df.columns:
+        df['_id'] = df['_id'].astype(str)
+    # Prepare a version for Raw Data Table and Export with renamed columns
+    raw_columns_map = {"caseID": "Case ID",  # Updated to use caseID instead of _id
                        "finishDate": "Finish Date",
-                       "category": "Category",le and Export with renamed columns
-                       "login": "Login",ted to use caseID instead of _id
-                       "managerLogin": "Manager Login",ate",
-                       "notes": "Notes",gory",
+                       "category": "Category",
+                       "login": "Login",
+                       "managerLogin": "Manager Login",
+                       "notes": "Notes",
                        "queue": "Queue",
-                       "totalTime": "Total Time"}Manager Login",
+                       "totalTime": "Total Time"}
     if not df.empty:
         raw_df = df[list(raw_columns_map.keys())].rename(columns=raw_columns_map)
-    else:   "totalTime": "Total Time"}
+    else:
         raw_df = pd.DataFrame()
-    return df, raw_dfaw_df = df[list(raw_columns_map.keys())].rename(columns=raw_columns_map)
+    return df, raw_df
 
-def create_dashboard(df):ataFrame()
-    # Removed duplicate raw data table and summary metrics    return df, raw_df
+def create_dashboard(df):
+    # Removed duplicate raw data table and summary metrics
     
     # Daily cases trend
-    st.subheader("Daily Cases Trend")# Removed duplicate raw data table and summary metrics
+    st.subheader("Daily Cases Trend")
     daily_cases = df.groupby('finishDate').size().reset_index(name='count')
     fig_trend = px.line(daily_cases, x='finishDate', y='count')
     st.plotly_chart(fig_trend)
-    ame='count')
-    # Cases by sitecases, x='finishDate', y='count')
-    st.subheader("Cases by Site")st.plotly_chart(fig_trend)
+    
+    # Cases by site
+    st.subheader("Cases by Site")
     site_cases = df['site'].value_counts()
     fig_site = px.pie(values=site_cases.values, names=site_cases.index)
     st.plotly_chart(fig_site)
     
-    # Cases by categorysite_cases.values, names=site_cases.index)
-    st.subheader("Cases by Category")st.plotly_chart(fig_site)
+    # Cases by category
+    st.subheader("Cases by Category")
     category_cases = df['category'].value_counts()
     fig_category = px.bar(x=category_cases.index, y=category_cases.values)
     st.plotly_chart(fig_category)
     
-    # Average Time per Categoryory_cases.index, y=category_cases.values)
-    st.subheader("Average Time per Category")st.plotly_chart(fig_category)
+    # Average Time per Category
+    st.subheader("Average Time per Category")
     avg_time_category = df.groupby('category')['totalTime'].mean().reset_index()
     fig_avg_category = px.bar(
         avg_time_category,
-        x='category',upby('category')['totalTime'].mean().reset_index()
-        y='totalTime',bar(
-        labels={'totalTime': 'Average Time (sec)', 'category': 'Category'},gory,
+        x='category',
+        y='totalTime',
+        labels={'totalTime': 'Average Time (sec)', 'category': 'Category'},
         title="Average Time Taken per Category"
     )
-    st.plotly_chart(fig_avg_category))', 'category': 'Category'},
-       title="Average Time Taken per Category"
+    st.plotly_chart(fig_avg_category)
+    
     # Bar chart for case categories by site
-    st.subheader("Case Categories by Site")st.plotly_chart(fig_avg_category)
+    st.subheader("Case Categories by Site")
     category_site_data = df.groupby(['site', 'category']).size().reset_index(name='count')
     fig_category_site = px.bar(
         category_site_data,
-        x='site',upby(['site', 'category']).size().reset_index(name='count')
-        y='count',bar(
-        color='category',site_data,
+        x='site',
+        y='count',
+        color='category',
         barmode='group',
         title="Case Categories by Site"
-    ),
+    )
     st.plotly_chart(fig_category_site)
-       title="Case Categories by Site"
+    
     # Line chart for average case time trend
-    st.subheader("Average Case Time Trend")st.plotly_chart(fig_category_site)
+    st.subheader("Average Case Time Trend")
     avg_time_trend = df.groupby('finishDate')['totalTime'].mean().reset_index()
-    fig_avg_time = px.line(d
+    fig_avg_time = px.line(
         avg_time_trend,
-        x='finishDate',upby('finishDate')['totalTime'].mean().reset_index()
-        y='totalTime',ine(
+        x='finishDate',
+        y='totalTime',
         title="Average Case Time Trend",
-        labels={'totalTime': 'Average Time (seconds)', 'finishDate': 'Date'},
+        labels={'totalTime': 'Average Time (seconds)', 'finishDate': 'Date'}
     )
     st.plotly_chart(fig_avg_time)
-       labels={'totalTime': 'Average Time (seconds)', 'finishDate': 'Date'}
+    
     # Pie chart for queue distribution
-    st.subheader("Queue Distribution")st.plotly_chart(fig_avg_time)
+    st.subheader("Queue Distribution")
     queue_distribution = df['queue'].value_counts()
     fig_queue = px.pie(
         values=queue_distribution.values,
-        names=queue_distribution.index,= df['queue'].value_counts()
+        names=queue_distribution.index,
         title="Queue Distribution"
-    )s,
-    st.plotly_chart(fig_queue)ndex,
-   title="Queue Distribution"
+    )
+    st.plotly_chart(fig_queue)
+
 def main():
-    st.title("Cases Data Analysis Dashboard")    st.plotly_chart(fig_queue)
+    st.title("Cases Data Analysis Dashboard")
     # Removed refresh button from main and added it to the sidebar
     if st.sidebar.button("Refresh Data"):
         st.rerun()
-    with st.spinner("Loading data..."):d added it to the sidebar
-        client = init_mongodb()button("Refresh Data"):
+    with st.spinner("Loading data..."):
+        client = init_mongodb()
         if not client:
-            logging.error("Failed to initialize MongoDB client.")ta..."):
-            returnmongodb()
+            logging.error("Failed to initialize MongoDB client.")
+            return
         try:
-            db = client['case_manager']g.error("Failed to initialize MongoDB client.")
-            collection = db['cases']return
+            db = client['case_manager']
+            collection = db['cases']
             logging.info("Connected to MongoDB collection: case_manager.cases")
-            with st.sidebar.expander("Filters 🔍", expanded=True):r']
+            with st.sidebar.expander("Filters 🔍", expanded=True):
                 default_start_date = datetime.now() - timedelta(days=30)
-                default_end_date = datetime.now()nager.cases")
+                default_end_date = datetime.now()
                 start_date = st.date_input(
-                    "📅 Start Date", () - timedelta(days=30)
-                    value=default_start_date, .now()
-                    max_value=datetime.now(), input(
+                    "📅 Start Date", 
+                    value=default_start_date, 
+                    max_value=datetime.now(), 
                     help="Select the starting date for filtering cases."
                 )
                 end_date = st.date_input(
-                    "📅 End Date",    help="Select the starting date for filtering cases."
+                    "📅 End Date", 
                     value=default_end_date, 
-                    max_value=datetime.now(), input(
+                    max_value=datetime.now(), 
                     help="Select the ending date for filtering cases."
                 )
                 login_options = ['All'] + get_unique_values(collection, 'login')
-                selected_login = st.selectbox(   help="Select the ending date for filtering cases."
+                selected_login = st.selectbox(
                     "👤 Login", 
-                    login_options, unique_values(collection, 'login')
-                    help="Filter cases by user login." st.selectbox(
+                    login_options, 
+                    help="Filter cases by user login."
                 )
                 manager_options = ['All'] + get_unique_values(collection, 'managerLogin')
-                selected_manager = st.selectbox(   help="Filter cases by user login."
+                selected_manager = st.selectbox(
                     "👔 Manager Login", 
-                    manager_options, unique_values(collection, 'managerLogin')
-                    help="Filter cases by manager login."lectbox(
-                )", 
+                    manager_options, 
+                    help="Filter cases by manager login."
+                )
                 site_options = ['All'] + get_unique_values(collection, 'site')
-                selected_site = st.selectbox(   help="Filter cases by manager login."
+                selected_site = st.selectbox(
                     "🏢 Site", 
-                    site_options, unique_values(collection, 'site')
-                    help="Filter cases by site." st.selectbox(
+                    site_options, 
+                    help="Filter cases by site."
                 )
             filters = {
-                'start_date': start_date,   help="Filter cases by site."
+                'start_date': start_date,
                 'end_date': end_date,
                 'login': selected_login if selected_login != 'All' else None,
-                'managerLogin': selected_manager if selected_manager != 'All' else None,ate,
+                'managerLogin': selected_manager if selected_manager != 'All' else None,
                 'site': selected_site if selected_site != 'All' else None
             }
-            documents = query_data(collection, filters)All' else None,
-            if not documents:   'site': selected_site if selected_site != 'All' else None
+            documents = query_data(collection, filters)
+            if not documents:
                 st.warning("No data found for the selected filters.")
-                logging.warning("No data found for filters: %s", filters)_data(collection, filters)
+                logging.warning("No data found for filters: %s", filters)
                 return
             # Transform the retrieved documents (with caching)
-            full_df, raw_df = transform_data(documents)g.warning("No data found for filters: %s", filters)
+            full_df, raw_df = transform_data(documents)
             # Prepare Excel export from raw_df
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")aching)
-            output = io.BytesIO()ocuments)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output = io.BytesIO()
             df_export = raw_df.copy()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:now().strftime("%Y%m%d_%H%M%S")
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 df_export.to_excel(writer, index=False)
             processed_data = output.getvalue()
-            st.sidebar.download_button(ter') as writer:
-                label="Export to Excel",ex=False)
-                data=processed_data,value()
+            st.sidebar.download_button(
+                label="Export to Excel",
+                data=processed_data,
                 file_name=f"cases_export_{timestamp}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"el",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             total_cases = len(full_df)
-            avg_time = full_df['totalTime'].mean() if total_cases > 0 else 0   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            avg_time = full_df['totalTime'].mean() if total_cases > 0 else 0
             unique_agents = full_df['login'].nunique() if total_cases > 0 else 0
             metric_html = f"""
             <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
-                <div style="padding: 10px; border-radius: 5px; background-color: {'#d4edda' if total_cases > 0 else '#f8d7da'}; width: 30%; text-align: center;">ll_df['login'].nunique() if total_cases > 0 else 0
+                <div style="padding: 10px; border-radius: 5px; background-color: {'#d4edda' if total_cases > 0 else '#f8d7da'}; width: 30%; text-align: center;">
                     <h3>Total Cases</h3>
                     <p style="font-size: 24px; margin: 0;">{total_cases}</p>
-                </div>x; border-radius: 5px; background-color: {'#d4edda' if total_cases > 0 else '#f8d7da'}; width: 30%; text-align: center;">
+                </div>
                 <div style="padding: 10px; border-radius: 5px; background-color: {'#d4edda' if avg_time < 60 else '#f8d7da'}; width: 30%; text-align: center;">
-                    <h3>Average Time (sec)</h3> style="font-size: 24px; margin: 0;">{total_cases}</p>
+                    <h3>Average Time (sec)</h3>
                     <p style="font-size: 24px; margin: 0;">{avg_time:.2f}</p>
-                </div>er-radius: 5px; background-color: {'#d4edda' if avg_time < 60 else '#f8d7da'}; width: 30%; text-align: center;">
+                </div>
                 <div style="padding: 10px; border-radius: 5px; background-color: {'#d4edda' if unique_agents > 0 else '#f8d7da'}; width: 30%; text-align: center;">
-                    <h3>Unique Agents</h3> style="font-size: 24px; margin: 0;">{avg_time:.2f}</p>
+                    <h3>Unique Agents</h3>
                     <p style="font-size: 24px; margin: 0;">{unique_agents}</p>
-                </div> border-radius: 5px; background-color: {'#d4edda' if unique_agents > 0 else '#f8d7da'}; width: 30%; text-align: center;">
+                </div>
             </div>
-            """ style="font-size: 24px; margin: 0;">{unique_agents}</p>
-            st.markdown(metric_html, unsafe_allow_html=True)div>
-            # Display only the raw table with essential fieldsiv>
+            """
+            st.markdown(metric_html, unsafe_allow_html=True)
+            # Display only the raw table with essential fields
             st.subheader("Filtered Raw Data")
             selected_columns = st.multiselect("Select Columns to Display", raw_df.columns.tolist(), default=raw_df.columns.tolist())
-            filtered_df = raw_df[selected_columns] essential fields
+            filtered_df = raw_df[selected_columns]
             st.dataframe(filtered_df)
-            create_dashboard(full_df)ect Columns to Display", raw_df.columns.tolist(), default=raw_df.columns.tolist())
-        except Exception as e:cted_columns]
+            create_dashboard(full_df)
+        except Exception as e:
             st.error(f"An error occurred: {str(e)}")
-            logging.error("An error occurred: %s", str(e))ull_df)
+            logging.error("An error occurred: %s", str(e))
         finally:
             logging.info("MongoDB client will remain open for reuse.")
-ing.error("An error occurred: %s", str(e))
+
 if __name__ == "__main__":
-    main()    main()
+    main()
