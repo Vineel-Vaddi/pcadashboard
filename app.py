@@ -108,6 +108,18 @@ def create_dashboard(df):
     fig_category = px.bar(x=category_cases.index, y=category_cases.values)
     st.plotly_chart(fig_category)
 
+    # Average Time per Category
+    st.subheader("Average Time per Category")
+    avg_time_category = df.groupby('category')['totalTime'].mean().reset_index()
+    fig_avg_category = px.bar(
+        avg_time_category,
+        x='category',
+        y='totalTime',
+        labels={'totalTime': 'Average Time (sec)', 'category': 'Category'},
+        title="Average Time Taken per Category"
+    )
+    st.plotly_chart(fig_avg_category)
+
     # Heatmap for daily case volume
     st.subheader("Daily Case Volume Heatmap")
     heatmap_data = df.groupby(['finishDate', 'site']).size().reset_index(name='count')
